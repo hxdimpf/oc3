@@ -85,11 +85,20 @@ class SessionDataCookie implements SessionDataInterface
     {
         global $opt;
 
-        if ($this->changed === true && count($this->values) > 1) {
-            $value = false;
-            if (count($this->values) > 0) {
-                $value = base64_encode(json_encode($this->values));
+        if ($this->changed === true) {
+            if (count($this->values) === 0) {
+                // logout / cleared session: delete with the same path and domain it was set with
+                setcookie(
+                    $opt['session']['cookiename'] . '_session',
+                    '',
+                    time() - 3600,
+                    $opt['session']['path'] ?? '/',
+                    $opt['session']['domain'] ?? ''
+                );
+
+                return;
             }
+            $value = base64_encode(json_encode($this->values));
             // https used for request and https is available, then set cookie https only
             $https_session = $opt['page']['https']['active']
                 && $opt['page']['https']['mode'] != HTTPS_DISABLED
@@ -120,12 +129,8 @@ class SessionDataCookie implements SessionDataInterface
 
     public function close(): void
     {
-        global $opt;
-
-        setcookie(
-            $opt['session']['cookiename'] . '_session',
-            '',
-            time() - 1
-        );
+        // Called by OcSmarty before every display/redirect. It used to delete the
+        // session cookie, which logged the user out on the next request whenever
+        // the cookie was host-only (empty session domain). Changes are written by header().
     }
 }
